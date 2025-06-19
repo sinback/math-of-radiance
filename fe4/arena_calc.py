@@ -50,15 +50,31 @@ Big-brain game design type thoughts/reminders to myself:
 
 Anyway if you fork this or find it useful, feel free to delete all those thoughts lol.
 """
+from __future__ import annotations
+
 import json
 import os
 from collections import OrderedDict
+from enum import IntEnum
 from pprint import pprint
 
 import numpy as np
 
 WEAPONS_FILE = "weapons.json"
 OPPONENTS_FILE = "opponents.json"
+
+
+class CharacterInputMode(IntEnum):
+    STORED = 1  # Use stored characters.json for name lookup and save/update behavior
+    MANUAL = 2  # Enter stats manually, do not store or load
+    # Future idea: support ring modifiers etc?
+
+    @staticmethod
+    def from_input(s: str) -> CharacterInputMode:
+        if not s.isdigit():
+            raise ValueError("Input must be a digit")
+        return CharacterInputMode(int(s))
+
 
 def load_data(filename):
     if os.path.exists(filename):
@@ -67,15 +83,31 @@ def load_data(filename):
     return OrderedDict()
 
 
+def save_data(filename, data):
+    with open(filename, 'w') as f:
+        json.dump(data, f, indent=2)
+
+
 weapons = load_data(WEAPONS_FILE)
 opponents = load_data(OPPONENTS_FILE)
+
+
+def get_input_block(prompt, fields):
+    """
+    Prompt the user using the given prompt text to input data for the given fields.
+    """
+    print(f"\n{prompt}")
+    result = OrderedDict()
+    for field in fields:
+        result[field] = int(input(f"  {field}: "))
+    return result
 
 
 def choose_character_input_mode():
     print("\nChoose character stat input mode:")
     print("  1. Use stored characters.json (name lookup, save/update behavior)")
     print("  2. Enter stats manually (do not store or load)")
-    choice = input("Enter choice (1 or 2): ").strip()
+    choice = CharacterInputMode(int(input("Enter choice (1 or 2): ").strip()))
     return choice
 
 def manual_character_entry():
@@ -213,11 +245,11 @@ def compute_win_chance(
 def run():
     print("=== FE4 Arena Win Calculator ===")
 
-    use_char_file = choose_character_input_mode()
-    if use_char_file == "1":
-        char_stats = get_or_add_character()
-    else:
-        char_stats = manual_character_entry()
+    match choose_character_input_mode():
+        case CharacterInputMode.STORED:
+            char_stats = get_or_add_character()
+        case CharacterInputMode.MANUAL:
+            char_stats = manual_character_entry()
 
     weapon = get_or_add_weapon()
 
