@@ -55,7 +55,7 @@ from __future__ import annotations
 import json
 import os
 from collections import OrderedDict
-from enum import IntEnum
+from enum import Enum, IntEnum
 from pprint import pprint
 from typing import Callable, Optional
 
@@ -144,16 +144,17 @@ def get_or_add_weapon():
         return weapons[name]
     else:
         data = get_input_ints(f"Enter stats for new weapon '{name}'", ["Might", "Hit", "Weight"])
-        data["Type"] = sanitize_input("  Type (physical/magic): ").strip().lower()
-
-        # Infer opponent type based on weapon name
-        bow_keywords = ["bow", "killer bow", "iron bow", "silver bow", "pursuit bow"]
-        is_bow = any(k in name for k in bow_keywords)
-        data["OpponentType"] = "bow" if is_bow else "normal"
+        data["DamageType"] = sanitize_input("  Type (physical/magic): ")
+        # Opponent properties are different if you use a bow, because it's 2-range only, so this
+        # attribute helps with opponent lookup.
+        data["OpponentType"] = sanitize_input(
+            "  Weapon type (normal/bow): ",
+            lambda x: 'ranged' if x == 'bow' else 'normal')
 
         weapons[name] = data
         save_data(WEAPONS_FILE, weapons)
         return data
+
 
 def get_or_add_opponent():
     chapter = sanitize_input("Chapter number: ")
@@ -161,6 +162,7 @@ def get_or_add_opponent():
 
     # Will defer inference to actual weapon choice later
     return chapter, arena  # key information used later
+
 
 def get_or_add_character():
     name = sanitize_input("Enter character name: ", cast_method=capitalize)
@@ -279,18 +281,18 @@ def run():
     if key not in opponents:
         print(f"Opponent data for {key} not found. Please enter it:")
         data = get_input_ints(f"Enter arena stats for opponent {key}", ["Hit", "Def", "Atc", "HP"])
-        data["Type"] = sanitize_input("  Type (physical/magic): ")
+        data["DamageType"] = sanitize_input("  Damage Type (physical/magic): ")
         opponents[key] = data
         save_data(OPPONENTS_FILE, opponents)
     opponent = opponents[key]
 
     char_atk = (
         compute_atk(char_stats["Str"], weapon["Might"])
-        if weapon["Type"] == "physical"
+        if weapon["DamageType"] == "physical"
         else compute_atk(char_stats["Mag"], weapon["Might"])
     )
-    char_dmg = max(char_atk - opponent["Def"], 0) if weapon["Type"] == "physical" else max(char_atk - char_stats["Res"], 0)
-    opp_dmg = max(opponent["Atc"] - char_stats["Def"], 0) if opponent["Type"] == "physical" else max(opponent["Atc"] - char_stats["Res"], 0)
+    char_dmg = max(char_atk - opponent["Def"], 0) if weapon["DamageType"] == "physical" else max(char_atk - char_stats["Res"], 0)
+    opp_dmg = max(opponent["Atc"] - char_stats["Def"], 0) if opponent["DamageType"] == "physical" else max(opponent["Atc"] - char_stats["Res"], 0)
 
     win_prob = compute_win_chance(
         player_hp=char_stats["HP"],
