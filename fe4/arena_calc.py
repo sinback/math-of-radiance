@@ -57,6 +57,7 @@ import os
 from collections import OrderedDict
 from enum import IntEnum
 from pprint import pprint
+from typing import Callable, Optional
 
 import numpy as np
 
@@ -76,6 +77,24 @@ class CharacterInputMode(IntEnum):
         return CharacterInputMode(int(s))
 
 
+def capitalize(s: str) -> str:
+    """
+    Helper for use as a cast_method with sanitize_input below
+    """
+    return s.capitalize()
+
+
+def sanitize_input(prompt: str, cast_method: Callable = lambda x: x):
+    """
+    Helper function to sanitize user input.
+    Prompts the user with the given prompt text and calls cast_method on it.
+
+    The default cast_method doesn't change the input, but common cast_methods might be int,
+    capitalize, or CharacterInputMode.from_input, etc.
+    """
+    return cast_method(input(prompt).strip().lower())
+
+
 def load_data(filename):
     if os.path.exists(filename):
         with open(filename, 'r') as f:
@@ -92,14 +111,14 @@ weapons = load_data(WEAPONS_FILE)
 opponents = load_data(OPPONENTS_FILE)
 
 
-def get_input_block(prompt, fields):
+def get_input_ints(prompt, fields):
     """
     Prompt the user using the given prompt text to input data for the given fields.
     """
     print(f"\n{prompt}")
     result = OrderedDict()
     for field in fields:
-        result[field] = int(input(f"  {field}: "))
+        result[field] = sanitize_input(f'  {field}: ', cast_method=int)
     return result
 
 
@@ -107,36 +126,25 @@ def choose_character_input_mode():
     print("\nChoose character stat input mode:")
     print("  1. Use stored characters.json (name lookup, save/update behavior)")
     print("  2. Enter stats manually (do not store or load)")
-    choice = CharacterInputMode(int(input("Enter choice (1 or 2): ").strip()))
+    choice = sanitize_input("Enter choice (1 or 2): ", CharacterInputMode.from_input)
     return choice
 
+
 def manual_character_entry():
-    return get_input_block("Enter character stats (manual mode, not saved)", 
+    return get_input_ints("Enter character stats (manual mode, not saved)", 
         ["Str", "Mag", "Skill", "Speed", "Luck", "Def", "Res", "HP"])
 
 
-def save_data(filename, data):
-    with open(filename, 'w') as f:
-        json.dump(data, f, indent=2)
-
-def get_input_block(prompt, fields):
-    print(f"\n{prompt}")
-    result = OrderedDict()
-    for field in fields:
-        result[field] = int(input(f"  {field}: "))
-    return result
-
-
 def get_or_add_weapon():
-    name = input("Enter weapon name: ").strip().lower()
+    name = sanitize_input("Enter weapon name: ")
     if name in weapons:
         print(f"Loaded existing weapon: {name}")
         print("Weapon stats:")
         pprint(weapons[name], indent=2)
         return weapons[name]
     else:
-        data = get_input_block(f"Enter stats for new weapon '{name}'", ["Might", "Hit", "Weight"])
-        data["Type"] = input("  Type (physical/magic): ").strip().lower()
+        data = get_input_ints(f"Enter stats for new weapon '{name}'", ["Might", "Hit", "Weight"])
+        data["Type"] = sanitize_input("  Type (physical/magic): ").strip().lower()
 
         # Infer opponent type based on weapon name
         bow_keywords = ["bow", "killer bow", "iron bow", "silver bow", "pursuit bow"]
@@ -148,14 +156,14 @@ def get_or_add_weapon():
         return data
 
 def get_or_add_opponent():
-    chapter = input("Chapter number: ").strip()
-    arena = input("Arena level (1–7): ").strip()
+    chapter = sanitize_input("Chapter number: ")
+    arena = sanitize_input("Arena level (1–7): ")
 
     # Will defer inference to actual weapon choice later
     return chapter, arena  # key information used later
 
 def get_or_add_character():
-    name = input("Enter character name: ").strip().lower().capitalize()
+    name = sanitize_input("Enter character name: ", cast_method=capitalize)
     characters = load_data("characters.json")
     
     if name in characters:
@@ -164,7 +172,7 @@ def get_or_add_character():
         pprint(characters[name], indent=2)
         return characters[name]
     else:
-        data = get_input_block(f"Enter stats for new character '{name}'", 
+        data = get_input_ints(f"Enter stats for new character '{name}'", 
             ["Str", "Mag", "Skill", "Speed", "Luck", "Def", "Res", "HP"])
         characters[name] = data
         save_data("characters.json", characters)
@@ -258,11 +266,11 @@ def run():
 
     # Arena combat UI stats
     print("\nEnter Arena displayed combat stats:")
-    displayed_char_hit = int(input("  Your displayed hit (e.g. 64): "))
-    displayed_enemy_hit = int(input("  Enemy displayed hit (e.g. 53): "))
+    displayed_char_hit = sanitize_input("  Your displayed hit (e.g. 64): ", int)
+    displayed_enemy_hit = sanitize_input("  Enemy displayed hit (e.g. 53): ", int)
 
     # Doubling info
-    double_state = input("Who doubles? (player/enemy/none/unknown): ").strip().lower()
+    double_state = sanitize_input("Who doubles? (player/enemy/none/unknown): ").strip().lower()
 
     # Infer opponent type from weapon metadata
     opponent_type = weapon.get("OpponentType", "normal")
@@ -270,8 +278,8 @@ def run():
 
     if key not in opponents:
         print(f"Opponent data for {key} not found. Please enter it:")
-        data = get_input_block(f"Enter arena stats for opponent {key}", ["Def", "Atc", "HP"])
-        data["Type"] = input("  Type (physical/magic): ").strip().lower()
+        data = get_input_ints(f"Enter arena stats for opponent {key}", ["Hit", "Def", "Atc", "HP"])
+        data["Type"] = sanitize_input("  Type (physical/magic): ")
         opponents[key] = data
         save_data(OPPONENTS_FILE, opponents)
     opponent = opponents[key]
