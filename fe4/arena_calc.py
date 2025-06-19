@@ -270,7 +270,8 @@ def run():
 
     if key not in opponents:
         print(f"Opponent data for {key} not found. Please enter it:")
-        data = get_input_block(f"Enter arena stats for opponent {key}", ["Hit", "Def", "Atc", "HP"])
+        data = get_input_block(f"Enter arena stats for opponent {key}", ["Def", "Atc", "HP"])
+        data["Type"] = input("  Type (physical/magic): ").strip().lower()
         opponents[key] = data
         save_data(OPPONENTS_FILE, opponents)
     opponent = opponents[key]
@@ -281,7 +282,7 @@ def run():
         else compute_atk(char_stats["Mag"], weapon["Might"])
     )
     char_dmg = max(char_atk - opponent["Def"], 0) if weapon["Type"] == "physical" else max(char_atk - char_stats["Res"], 0)
-    opp_dmg = max(opponent["Atc"] - char_stats["Def"], 0)
+    opp_dmg = max(opponent["Atc"] - char_stats["Def"], 0) if opponent["Type"] == "physical" else max(opponent["Atc"] - char_stats["Res"], 0)
 
     win_prob = compute_win_chance(
         player_hp=char_stats["HP"],
