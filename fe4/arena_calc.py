@@ -56,7 +56,7 @@ import json
 import os
 from collections import OrderedDict
 from enum import Enum, IntEnum
-from pprint import pprint
+from pprint import pformat
 from typing import Callable, Optional
 
 import numpy as np
@@ -75,6 +75,29 @@ class CharacterInputMode(IntEnum):
         if not s.isdigit():
             raise ValueError("Input must be a digit")
         return CharacterInputMode(int(s))
+
+
+def format_stats(stats: OrderedDict) -> str:
+    """
+    Format character or weapon stats for pretty printing.
+    """
+    # pformat already gets a lot of the job done for us, so start with that
+    s = pformat(dict(stats), sort_dicts=False, indent=2)
+    # Shave the initial { and final } off of s to make it even prettier
+    # initial '{' is replaced with a ' ' (preserves indentation); final '}' is simply removed
+    lines = s.splitlines()
+    if not lines:
+        return ""
+    lines[0] = lines[0].replace('{', ' ', 1)
+    if lines[-1].endswith('}'):      # it should, it's a pformatted dict
+        lines[-1] = lines[-1].rsplit('}', 1)[0]  # remove the final '}'
+    # Now trim ' and , characters out
+    for i, line in enumerate(lines):
+        line = line.replace("'", "")
+        line = line.replace(",", "")
+        lines[i] = line
+
+    return '\n'.join(lines)
 
 
 def capitalize(s: str) -> str:
@@ -140,7 +163,7 @@ def get_or_add_weapon():
     if name in weapons:
         print(f"Loaded existing weapon: {name}")
         print("Weapon stats:")
-        pprint(weapons[name], indent=2)
+        print(format_stats(weapons[name]))
         return weapons[name]
     else:
         data = get_input_ints(f"Enter stats for new weapon '{name}'", ["Might", "Hit", "Weight"])
@@ -171,7 +194,7 @@ def get_or_add_character():
     if name in characters:
         print(f"Loaded existing character: {name}")
         print("Character stats:")
-        pprint(characters[name], indent=2)
+        print(format_stats(characters[name]))
         return characters[name]
     else:
         data = get_input_ints(f"Enter stats for new character '{name}'", 
