@@ -179,12 +179,20 @@ def get_or_add_weapon():
         return data
 
 
-def get_or_add_opponent():
-    chapter = sanitize_input("Chapter number: ")
-    arena = sanitize_input("Arena level (1–7): ")
 
-    # Will defer inference to actual weapon choice later
-    return chapter, arena  # key information used later
+def get_or_add_opponent(key: str) -> dict:
+    if key not in opponents:
+        print(f"Opponent data for {key} not found. Please enter it:")
+        data = get_input_ints(f"Enter arena stats for opponent {key}", ["Def", "Atc", "HP"])
+        data["DamageType"] = sanitize_input("  Damage Type (physical/magic): ")
+        opponents[key] = data
+        save_data(OPPONENTS_FILE, opponents)
+        # TODO Pavise support (applies to all Generals but triggher %= is another hidden stat)
+    else:
+        print(f"Loaded existing opponent: {key}")
+        print("Opponent stats:")
+        print(format_stats(opponents[key]))
+    return opponents[key]
 
 
 def get_or_add_character():
@@ -286,28 +294,23 @@ def run():
 
     weapon = get_or_add_weapon()
 
-    # Opponent key info
-    chapter, arena = get_or_add_opponent()
+    # Chapter and arena selection – will look up opponent stats if already saved
+    chapter = sanitize_input("Chapter number: ", cast_method=int)
+    arena = sanitize_input("Arena level (1–7): ", cast_method=int)
 
-    # Arena combat UI stats
+    # Infer opponent type (normal or ranged) from weapon info
+    opponent_type = weapon.get("OpponentType", "normal")
+    opponent = get_or_add_opponent(f"{opponent_type}_ch{chapter}_lvl{arena}")
+
+    # Arena combat UI stats – these are displayed during actual fights and depend on opponent
+    # stats, which are (for now) hidden/not inferred, so even though it sort of sucks to make
+    # the user actually start the fight, it's important for getting accurate simulation results.
     print("\nEnter Arena displayed combat stats:")
     displayed_char_hit = sanitize_input("  Your displayed hit (e.g. 64): ", int)
     displayed_enemy_hit = sanitize_input("  Enemy displayed hit (e.g. 53): ", int)
-
-    # Doubling info
+    # Also something that we currently can't definitively know until the player is actually
+    # mid-fight
     double_state = sanitize_input("Who doubles? (player/enemy/none/unknown): ").strip().lower()
-
-    # Infer opponent type from weapon metadata
-    opponent_type = weapon.get("OpponentType", "normal")
-    key = f"{opponent_type}_ch{chapter}_lvl{arena}"
-
-    if key not in opponents:
-        print(f"Opponent data for {key} not found. Please enter it:")
-        data = get_input_ints(f"Enter arena stats for opponent {key}", ["Hit", "Def", "Atc", "HP"])
-        data["DamageType"] = sanitize_input("  Damage Type (physical/magic): ")
-        opponents[key] = data
-        save_data(OPPONENTS_FILE, opponents)
-    opponent = opponents[key]
 
     char_atk = (
         compute_atk(char_stats["Str"], weapon["Might"])
